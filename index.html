@@ -3,17 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>COMP4020 prototype</title>
+    <title>Goose Grab</title>
     <meta
       name="description"
-      content="Replace this with one sentence saying what this page is. A search result and a link preview both show it."
+      content="A tiny stacked-tile matching game: clear the pot before the rack overflows or the clock runs out."
     />
 
-    <!--
-      The link-preview card: public/card.png, 1200x630 --- replace it. The URL
-      resolves against this page, like any link. No og:title/og:description:
-      scrapers fall back to the <title> and description above.
-    -->
     <meta property="og:type" content="website" />
     <meta property="og:image" content="./card.png" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -27,11 +22,14 @@
       </nav>
     </header>
     <main>
-      <h1>COMP4020 prototype</h1>
-      <p>
-        Replace this with your prototype. This week's brief is on the course website;
-        <code>spec/README.md</code> explains how the checks in this repo relate to it.
-      </p>
+      <h1>Goose Grab</h1>
+      <div class="hud">
+        <span class="timer" id="timer" aria-live="polite">1:30</span>
+        <button class="restart" id="restart" type="button">New game</button>
+      </div>
+      <div class="board" id="board" aria-label="Pot of tiles"></div>
+      <div class="rack" id="rack" aria-label="Collected tiles"></div>
+      <p class="banner" id="banner" aria-live="polite" hidden></p>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>
