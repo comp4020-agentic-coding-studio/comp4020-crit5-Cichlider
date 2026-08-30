@@ -1,16 +1,16 @@
-// Pure game rules for the goose-grab matching game --- no DOM, no timers, so
-// every rule here is unit-testable without jsdom. main.ts is the only file
-// that touches the document or a real clock.
+// Pure game rules --- no DOM, no timers, no three.js/cannon-es types, so
+// every rule here is unit-testable without jsdom or WebGL. scene.ts is the
+// only place that touches the document, a render loop, or physics bodies.
+//
+// Occlusion is no longer a rule this module enforces: it used to gate
+// `collect` itself, but now that "on top of" is a live geometric fact about
+// moving 3D bodies (occlusion.ts's isCollectible), that check has to happen
+// where the bodies live. collect() trusts its caller (scene.ts) to have
+// already confirmed the clicked item is collectible before calling it.
 
-export interface TileDef {
-  id: string;
-  kind: string;
-  /** ids of tiles that must be gone from the board before this one is clickable */
-  occludedBy: string[];
-}
+import type { ItemSpawn } from "./levels";
 
-export interface Level {
-  tiles: TileDef[];
+export interface GameConfig {
   rackCapacity: number;
   timeLimitSeconds: number;
 }
@@ -18,45 +18,42 @@ export interface Level {
 export type Status = "playing" | "won" | "lost";
 
 export interface GameState {
-  level: Level;
-  board: Set<string>;
-  rack: string[]; // kinds, in collection order
+  config: GameConfig;
+  /** items still in the scene, id -> kind */
+  remaining: Map<string, string>;
+  /** kinds, in collection order */
+  rack: string[];
   status: Status;
   timeRemaining: number;
 }
 
-export function createGame(level: Level): GameState {
+export function createGame(spawns: ItemSpawn[], config: GameConfig): GameState {
   return {
-    level,
-    board: new Set(level.tiles.map((t) => t.id)),
+    config,
+    remaining: new Map(spawns.map((s) => [s.id, s.kind])),
     rack: [],
     status: "playing",
-    timeRemaining: level.timeLimitSeconds,
+    timeRemaining: config.timeLimitSeconds,
   };
 }
 
-export function isVisible(state: GameState, tileId: string): boolean {
-  if (!state.board.has(tileId)) return false;
-  const tile = state.level.tiles.find((t) => t.id === tileId);
-  if (!tile) return false;
-  return tile.occludedBy.every((occluderId) => !state.board.has(occluderId));
-}
-
-/** Collect a tile if the rules allow it; otherwise returns the state unchanged. */
-export function collect(state: GameState, tileId: string): GameState {
+/** Collect an item by id. Assumes the caller already checked it's
+ * collectible (not buried under another body) --- returns the state
+ * unchanged if the id isn't in play or the game is already over. */
+export function collect(state: GameState, id: string): GameState {
   if (state.status !== "playing") return state;
-  if (!isVisible(state, tileId)) return state;
+  const kind = state.remaining.get(id);
+  if (kind === undefined) return state;
 
-  const tile = state.level.tiles.find((t) => t.id === tileId)!;
-  const board = new Set(state.board);
-  board.delete(tileId);
-  const rack = [...state.rack, tile.kind];
+  const remaining = new Map(state.remaining);
+  remaining.delete(id);
+  const rack = [...state.rack, kind];
 
-  const matched = rack.filter((k) => k === tile.kind).length >= 3;
+  const matched = rack.filter((k) => k === kind).length >= 3;
   if (matched) {
     let removed = 0;
     for (let i = rack.length - 1; i >= 0 && removed < 3; i--) {
-      if (rack[i] === tile.kind) {
+      if (rack[i] === kind) {
         rack.splice(i, 1);
         removed++;
       }
@@ -64,51 +61,20 @@ export function collect(state: GameState, tileId: string): GameState {
   }
 
   let status: Status = state.status;
-  if (board.size === 0 && rack.length === 0) {
+  if (remaining.size === 0 && rack.length === 0) {
     status = "won";
-  } else if (rack.length > state.level.rackCapacity) {
+  } else if (rack.length > state.config.rackCapacity) {
     status = "lost";
   }
 
-  return { ...state, board, rack, status };
+  return { ...state, remaining, rack, status };
 }
 
-/** Advance the clock by dt seconds. Losing on timeout is a rule, not a render detail. */
+/** Advance the clock by dt seconds. Losing on timeout is a rule, not a
+ * render detail, so it gets its own test independent of a real clock. */
 export function tick(state: GameState, dt: number): GameState {
   if (state.status !== "playing") return state;
   const timeRemaining = Math.max(0, state.timeRemaining - dt);
   const status: Status = timeRemaining === 0 ? "lost" : state.status;
   return { ...state, timeRemaining, status };
-}
-
-const KINDS = ["goose", "egg", "corn", "bread", "feather", "wheat"] as const;
-
-/** Six 3-deep stacks, kinds shuffled across the 18 slots so a triple is
- * usually scattered across more than one stack --- that's the puzzle. */
-export function generateLevel(rng: () => number = Math.random): Level {
-  const kinds = KINDS.flatMap((k) => [k, k, k]);
-  for (let i = kinds.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [kinds[i], kinds[j]] = [kinds[j], kinds[i]];
-  }
-
-  const stacks = 6;
-  const depth = 3;
-  const tiles: TileDef[] = [];
-  let k = 0;
-  for (let s = 0; s < stacks; s++) {
-    const stackIds: string[] = [];
-    for (let d = 0; d < depth; d++) {
-      const id = `s${s}-d${d}`;
-      stackIds.push(id);
-      tiles.push({ id, kind: kinds[k++], occludedBy: [] });
-    }
-    // within a stack, each layer is occluded by every layer above it
-    for (let d = 0; d < depth; d++) {
-      const tile = tiles.find((t) => t.id === stackIds[d])!;
-      tile.occludedBy = stackIds.slice(d + 1);
-    }
-  }
-
-  return { tiles, rackCapacity: 7, timeLimitSeconds: 90 };
 }
