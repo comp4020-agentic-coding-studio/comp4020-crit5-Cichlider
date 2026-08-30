@@ -35,7 +35,7 @@ function startLevel2() {
     { canvas, rack, timerEl, banner, shakeHint },
     {
       level: generateLevel2(Math.random),
-      config: { rackCapacity: 7, timeLimitSeconds: 180 },
+      config: { rackCapacity: 7, timeLimitSeconds: 300 },
       onWin: () => {},
       onLose: () => {},
     },

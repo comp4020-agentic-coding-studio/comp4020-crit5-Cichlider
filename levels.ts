@@ -18,6 +18,7 @@ export interface ItemSpawn {
 export interface Level {
   name: string;
   containerRadius: number;
+  containerHeight: number;
   spawns: ItemSpawn[];
 }
 
@@ -38,6 +39,7 @@ function shuffledCopy<T>(arr: T[], rng: Rng): T[] {
 
 interface SpawnParams {
   containerRadius: number;
+  containerHeight: number;
   xzSpread: number;
   dropHeightMin: number;
   dropHeightMax: number;
@@ -68,7 +70,7 @@ function buildLevel(name: string, kindCounts: Map<string, number>, rng: Rng, par
       if (dropHeight > params.dropHeightMax) dropHeight = params.dropHeightMin;
     }
   }
-  return { name, containerRadius: params.containerRadius, spawns };
+  return { name, containerRadius: params.containerRadius, containerHeight: params.containerHeight, spawns };
 }
 
 /** Tutorial level: exactly the real game's own minimal set (cabbage /
@@ -82,6 +84,7 @@ export function generateLevel1(rng: Rng): Level {
   ]);
   return buildLevel("Level 1", kindCounts, rng, {
     containerRadius: 1.4,
+    containerHeight: 1.4,
     xzSpread: 1.0,
     dropHeightMin: 0.6,
     dropHeightMax: 0.9,
@@ -89,26 +92,32 @@ export function generateLevel1(rng: Rng): Level {
   });
 }
 
-/** The real game: 10-15 kinds, each kind's count a strict multiple of 3 by
- * construction (never validated after the fact), tight spread and a tall
- * drop over a small container so items pile in real layers. Total item
- * count is an emergent result of the per-kind randomization, not a fixed
- * constant --- there is no "official 300", so none is hardcoded here. */
+/** The real game: 14-18 kinds out of the full catalog, each kind's count a
+ * strict multiple of 3 by construction (never validated after the fact) and
+ * drawn from `3 * randomInt(2, 5)` (6-15 per kind) so the *worst case* is
+ * guaranteed dense --- at least 14*6 = 84 items, several layers deep at this
+ * container's floor area, not just a high average that an unlucky roll can
+ * miss. Tight spread and a tall drop over a small, deep container so items
+ * pile in real layers instead of spreading into a single flat sheet. Total
+ * item count is still an emergent result of the per-kind randomization, not
+ * a fixed constant --- there is no "official 300", so none is hardcoded
+ * here. */
 export function generateLevel2(rng: Rng): Level {
   const kindPool = shuffledCopy(ITEM_KINDS, rng);
-  const kindCount = randomInt(rng, 10, Math.min(15, kindPool.length));
+  const kindCount = randomInt(rng, 14, Math.min(18, kindPool.length));
   const chosenKinds = kindPool.slice(0, kindCount);
 
   const kindCounts = new Map<string, number>();
   for (const def of chosenKinds) {
-    kindCounts.set(def.kind, 3 * randomInt(rng, 1, 8));
+    kindCounts.set(def.kind, 3 * randomInt(rng, 2, 5));
   }
 
   return buildLevel("Level 2", kindCounts, rng, {
-    containerRadius: 1.1,
-    xzSpread: 0.7,
-    dropHeightMin: 0.5,
-    dropHeightMax: 3.5,
-    dropHeightStep: 0.06,
+    containerRadius: 1.05,
+    containerHeight: 5.8,
+    xzSpread: 0.65,
+    dropHeightMin: 0.6,
+    dropHeightMax: 3.0,
+    dropHeightStep: 0.05,
   });
 }

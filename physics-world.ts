@@ -47,9 +47,10 @@ export class PhysicsWorld {
   private readonly bodies = new Map<string, BodyRecord>();
   private readonly itemMaterial: CANNON.Material;
 
-  constructor(containerRadius: number, tuning: PhysicsTuning = DEFAULT_TUNING) {
+  constructor(containerRadius: number, containerHeight: number = 2, tuning: PhysicsTuning = DEFAULT_TUNING) {
     this.world = new CANNON.World({ gravity: new CANNON.Vec3(0, tuning.gravity, 0) });
     this.world.allowSleep = true;
+    this.world.broadphase = new CANNON.SAPBroadphase(this.world);
     (this.world.solver as CANNON.GSSolver).iterations = tuning.solverIterations;
 
     this.itemMaterial = new CANNON.Material("item");
@@ -67,20 +68,27 @@ export class PhysicsWorld {
       }),
     );
 
+    // Bounded, not an infinite plane: a body that somehow clears the wall
+    // (a fast-moving item skimming over the open top of a tall pile) falls
+    // straight through instead of coming to rest just outside the container,
+    // visibly floating beside the pot.
     const floorBody = new CANNON.Body({ mass: 0, material: floorMaterial });
-    floorBody.addShape(new CANNON.Plane());
-    floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+    const floorHalfExtent = containerRadius * 1.1;
+    floorBody.addShape(new CANNON.Box(new CANNON.Vec3(floorHalfExtent, 0.05, floorHalfExtent)));
+    floorBody.position.set(0, -0.05, 0);
     this.world.addBody(floorBody);
 
     const wallSegments = 16;
-    const wallHeight = 2;
+    const wallHeight = containerHeight;
     for (let i = 0; i < wallSegments; i++) {
       const angle = (i / wallSegments) * Math.PI * 2;
       const nextAngle = ((i + 1) / wallSegments) * Math.PI * 2;
       const midAngle = (angle + nextAngle) / 2;
       const segmentLength = containerRadius * (2 * Math.sin(Math.PI / wallSegments));
       const wallBody = new CANNON.Body({ mass: 0, material: floorMaterial });
-      wallBody.addShape(new CANNON.Box(new CANNON.Vec3(segmentLength / 2, wallHeight / 2, 0.05)));
+      // Thick enough that a fast shake-flung item can't tunnel straight
+      // through in one physics step (a thin 0.05 panel let that happen).
+      wallBody.addShape(new CANNON.Box(new CANNON.Vec3(segmentLength / 2, wallHeight / 2, 0.25)));
       wallBody.position.set(Math.cos(midAngle) * containerRadius, wallHeight / 2, Math.sin(midAngle) * containerRadius);
       wallBody.quaternion.setFromEuler(0, -midAngle + Math.PI / 2, 0);
       this.world.addBody(wallBody);

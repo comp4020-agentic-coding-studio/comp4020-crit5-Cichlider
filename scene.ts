@@ -50,19 +50,30 @@ export function createScene(dom: SceneDom, opts: SceneOptions): SceneHandle {
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#cfe0ef");
 
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.set(0, level.containerRadius * 3.4, level.containerRadius * 1.1);
-  camera.lookAt(0, 0, 0);
+  // containerHeight is sized as a physics safety margin (tall enough that a
+  // worst-case pile never nears the open top), not as the pile's typical
+  // visual height -- framing off the raw value would zoom out far past what
+  // an actual settled pile needs. Cap the height term at a realistic pile
+  // height instead so the shot stays tight regardless of that margin.
+  const framingHeight = Math.min(level.containerHeight, 3.2);
+  const camDistance = Math.max(level.containerRadius * 3.4, framingHeight * 1.9);
+  camera.position.set(0, camDistance, Math.max(level.containerRadius * 1.3, framingHeight * 0.75));
+  camera.lookAt(0, framingHeight * 0.22, 0);
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.65));
   const sun = new THREE.DirectionalLight(0xffffff, 0.9);
   sun.position.set(2, 4, 2);
   sun.castShadow = true;
   scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.3);
+  fill.position.set(-2, 2.5, -1.5);
+  scene.add(fill);
 
   const floorMesh = new THREE.Mesh(
     new THREE.CircleGeometry(level.containerRadius, 32).rotateX(-Math.PI / 2),
@@ -71,10 +82,12 @@ export function createScene(dom: SceneDom, opts: SceneOptions): SceneHandle {
   floorMesh.receiveShadow = true;
   scene.add(floorMesh);
 
-  // The physics walls (physics-world.ts) are taller than this for real
-  // containment; the visible wall is deliberately shorter so it doesn't
-  // block the camera's view down into the pile from this angle.
-  const visualWallHeight = 0.7;
+  // The camera stays close to top-down (see above), so a tall wall reads as
+  // a ring around the pile instead of blocking the view into it -- letting
+  // the visible wall scale much closer to the real physics containment
+  // height so a deep level actually reads as a deep pot, not a shallow dish
+  // with items floating above the rim.
+  const visualWallHeight = Math.min(2.2, framingHeight * 0.55);
   const wallMesh = new THREE.Mesh(
     new THREE.CylinderGeometry(level.containerRadius, level.containerRadius, visualWallHeight, 32, 1, true),
     new THREE.MeshStandardMaterial({ color: "#5a432a", side: THREE.DoubleSide }),
@@ -82,7 +95,7 @@ export function createScene(dom: SceneDom, opts: SceneOptions): SceneHandle {
   wallMesh.position.y = visualWallHeight / 2;
   scene.add(wallMesh);
 
-  const physics = new PhysicsWorld(level.containerRadius);
+  const physics = new PhysicsWorld(level.containerRadius, level.containerHeight);
   const meshes = new Map<string, THREE.Object3D>();
 
   for (const spawn of level.spawns) {
