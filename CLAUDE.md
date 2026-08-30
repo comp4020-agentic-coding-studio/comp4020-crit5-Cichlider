@@ -41,3 +41,17 @@ harness is assessed. This file and the sensors you wire into `check` carry
 across the course --- both come with you into next week's repo. The prototype
 doesn't: source, and the tests answering this week's published spec, stay
 behind. `spec/README.md` draws the line.
+
+## Crit 5 notes
+
+- Keep game rules in `game.ts` as pure functions over a `GameState` (no DOM, no
+  `setInterval`) --- `main.ts` is the only file that touches `document` or a
+  real clock. Last week's `AudioContext` couldn't be exercised in jsdom at
+  all; this week's `tick(state, dt)` takes elapsed time as a plain argument
+  instead of reading a real clock, so the timeout-loses-the-game rule gets an
+  actual test (`spec/game.test.ts`), not just a note that it's unverifiable.
+- `generateLevel` requires every tile kind's total count to be a multiple of
+  3, or a leftover one or two can never clear and the board can go empty
+  while the rack doesn't --- `win` checks both `board.size === 0` and
+  `rack.length === 0` for exactly that reason. A test fixture that breaks
+  this invariant fails the win check, not the game.
