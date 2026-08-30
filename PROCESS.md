@@ -122,8 +122,6 @@ check, same as any other DOM-input adapter in this repo. Play it and decide
 whether level 2's density and the shake's force constants feel right at your
 own five minutes; those are `levels.ts`/`shake.ts` constants, not architecture,
 and adjusting them is a feel judgment no test can make for you.
-`reflections/crit-5.md` is still unwritten on purpose, for the same reason it
-was last time.
 
 ## The original flat-grid build (superseded, kept for the record)
 
