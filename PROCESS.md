@@ -22,8 +22,9 @@ whole pot to win; overflow the rack or run out of the clock to lose.
    `document` and no `setInterval` --- `collect`, `isVisible` and `tick` are
    plain functions over a `GameState` value. That's what let every hard rule
    in the spec (occlusion gates a click, three-of-a-kind clears, the rack can
-   overflow, the clock can run out) get its own test in
-   [`spec/game.test.ts`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit5-Cichlider/commit/2fcda04),
+   overflow, the clock can run out) get its own test in `spec/game.test.ts`,
+   added alongside `game.ts` in
+   [`2fcda04`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit5-Cichlider/commit/2fcda04),
    rather than being asserted only by eye. Last week's instrument couldn't
    test its `AudioContext` scheduler at all in jsdom; this week's `tick(state,
    dt)` sidesteps the same problem by taking elapsed time as an argument
@@ -35,9 +36,11 @@ whole pot to win; overflow the rack or run out of the clock to lose.
    what surfaced the real constraint (every kind's count must be a multiple
    of 3) that `generateLevel` depends on and that `CLAUDE.md` now records.
    Caught before it ever reached a real playthrough.
-4. **Looked at the rendered page, not just green tests.** A headless Chromium
-   pass against `pnpm dev` (screenshots + `console --errors`) confirmed the
-   layering reads correctly --- covered tiles visibly dimmed and inert,
+4. **Looked at the rendered page, not just green tests.** After
+   [`1f8221d`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit5-Cichlider/commit/1f8221d)
+   wired `main.ts` up to the DOM, a headless Chromium pass against `pnpm dev`
+   (screenshots + `console --errors`) confirmed the layering reads correctly
+   --- covered tiles visibly dimmed and inert,
    the top tile bright, the rack filling as tiles are collected --- and
    caught nothing wrong, but that's the check the unit tests structurally
    can't do: they can't see whether the stack *looks* like a stack.
