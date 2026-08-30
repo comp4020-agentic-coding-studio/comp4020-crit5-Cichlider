@@ -44,14 +44,67 @@ behind. `spec/README.md` draws the line.
 
 ## Crit 5 notes
 
+Goose Grab went through one full architectural pivot mid-week: a flat
+CSS-grid of six fixed 3-deep stacks was rejected as not really 抓大鹅 at all
+(no real container, no emergent occlusion, unwinnable-by-construction level
+counts) and rebuilt as an actual physics-simulated pile of independent 3D
+meshes (three.js render, cannon-es physics) settling under real gravity in a
+single container. The notes below describe the current, physics-based build.
+
+- **Pure/testable core vs. visual-only glue is now a much bigger split than
+  last week's.** Pure and unit-tested, no DOM/WebGL/jsdom required:
+  `item-kinds.ts` (the kind catalog), `levels.ts` (level generation),
+  `occlusion.ts` (collectibility + burial math over plain `BodySnapshot[]`),
+  `shake.ts` (the impulse-falloff math), `game.ts` (rules over `GameState`),
+  and --- notably --- `physics-world.ts`: cannon-es needs no WebGL/DOM, so its
+  actual settle/locality behavior gets a headless regression test
+  (`spec/physics-world.test.ts`), not just a note that physics can't be
+  tested. Visual-only, judged by eye against `pnpm dev`: `scene.ts` (camera,
+  lighting, raycasting, the render/physics loop), `mesh-library.ts` (what the
+  procedural meshes actually look like), `tray.ts` (the fly-to-slot DOM
+  animation), and the devicemotion/drag shake adapters --- same "some things
+  can only be checked by looking" limit as last week's `AudioContext`, now
+  covering a much larger surface (an entire 3D scene) instead of one API.
+- **Procedural meshes are a deliberate scope decision, not a shortcut.**
+  `mesh-library.ts` builds every item from combined primitive three.js
+  geometries (boxes/spheres/cylinders/capsules/icosahedra) --- there is no
+  asset pipeline in a one-week prototype, and that's fine.
+- **`levels.ts` guarantees every kind's count is a multiple of 3 by
+  construction, not by validation.** Level 2's per-kind count is computed
+  directly as `3 * randomInt(1, 8)` at generation time; there is no
+  after-the-fact check that could fail and no path that produces an
+  unwinnable count. (The old `generateLevel` used to compute a count and
+  then rely on a comment reminding you it should be a multiple of 3 --- that
+  was the actual bug the user's critique caught.)
+- **`collect()` in `game.ts` no longer gates on occlusion itself** --- it
+  trusts its caller (`scene.ts`) to have already checked
+  `occlusion.isCollectible()` against live physics-body positions before
+  calling it. This moved because occlusion is now a property of where bodies
+  actually are after real physics settling, not a static graph `game.ts` can
+  own.
+- **The "颠锅" shake mechanic is structurally incapable of being a shuffle.**
+  `computeShakeImpulse(burial, shakeVector, baseMagnitude)` in `shake.ts`
+  takes no target-item id --- there is no code path from "which item do I
+  want" to "give that item extra force." Impulse scales per-body by
+  `burialToImpulseScale(burial)`, a steep `(1 - burial)^2` falloff, so buried
+  items barely move regardless of how hard or long you shake. Vigorous
+  shaking can visibly re-cluster the pile and reduce exposed area --- a real
+  physics consequence of the impulse, not a scripted risk/reward rule.
+- **"Local settling only" (never a full-pile collapse on collect) is a
+  physics-tuning outcome, not special-cased code.** `physics-world.ts` removes
+  a collected body and lets gravity/contacts handle whatever was resting on
+  it --- no "nudge neighbors" or "collapse everything" logic exists anywhere.
+  The behavior comes from tuned constants (moderate-high friction ~0.6, low
+  restitution ~0.08, linear/angular damping 0.4/0.6, 14 solver iterations,
+  body sleeping enabled) verified by `spec/physics-world.test.ts`: removing a
+  load-bearing body noticeably moves its direct neighbor while a distant,
+  unrelated body barely moves at all.
 - Keep game rules in `game.ts` as pure functions over a `GameState` (no DOM, no
-  `setInterval`) --- `main.ts` is the only file that touches `document` or a
-  real clock. Last week's `AudioContext` couldn't be exercised in jsdom at
-  all; this week's `tick(state, dt)` takes elapsed time as a plain argument
-  instead of reading a real clock, so the timeout-loses-the-game rule gets an
-  actual test (`spec/game.test.ts`), not just a note that it's unverifiable.
-- `generateLevel` requires every tile kind's total count to be a multiple of
-  3, or a leftover one or two can never clear and the board can go empty
-  while the rack doesn't --- `win` checks both `board.size === 0` and
-  `rack.length === 0` for exactly that reason. A test fixture that breaks
-  this invariant fails the win check, not the game.
+  `setInterval`) --- `scene.ts` is the only file that touches `document`, a
+  real clock, or WebGL. `tick(state, dt)` still takes elapsed time as a plain
+  argument instead of reading a real clock, so the timeout-loses-the-game rule
+  keeps an actual test (`spec/game.test.ts`).
+- `three@0.185.x` does **not** ship its own TypeScript types (verified via
+  `npm view three@0.185.1 types` returning empty, and no `.d.ts` files in the
+  installed package) --- `@types/three` is a real, needed devDependency here,
+  not dead weight to prune.
