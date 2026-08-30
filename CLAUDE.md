@@ -71,11 +71,33 @@ single container. The notes below describe the current, physics-based build.
   asset pipeline in a one-week prototype, and that's fine.
 - **`levels.ts` guarantees every kind's count is a multiple of 3 by
   construction, not by validation.** Level 2's per-kind count is computed
-  directly as `3 * randomInt(1, 8)` at generation time; there is no
+  directly as `3 * randomInt(2, 5)` at generation time; there is no
   after-the-fact check that could fail and no path that produces an
   unwinnable count. (The old `generateLevel` used to compute a count and
   then rely on a comment reminding you it should be a multiple of 3 --- that
   was the actual bug the user's critique caught.)
+- **A follow-up critique ("建模过于粗糙", "容器内容太少、太浅") caught that a
+  guaranteed-multiple-of-3 count is not the same as a guaranteed-*dense*
+  one.** The old range (`kindCount` 10-15, per-kind `3*randomInt(1,8)`)
+  allowed a worst case of only 30 items --- barely a monolayer, glanceable
+  at a glimpse with no real digging. `generateLevel2` now guarantees a
+  **floor** of 84 items (14-18 kinds, `3*randomInt(2,5)` = 6-15 each) in a
+  smaller-radius, much taller container, so items stack in real layers
+  instead of spreading wide. This is a worst-case guarantee, not just a
+  denser average: `spec/levels.test.ts` asserts the *minimum* bound, not
+  just a sampled result. Container height is a physics safety margin, not
+  a visual constant --- `scene.ts` derives camera framing from a separately
+  capped `framingHeight`, not the raw value, or the shot zooms out to match
+  whatever margin containment needs.
+- **cannon-es has no continuous collision detection.** A fast-moving item
+  (e.g. flung by a vigorous shake) can tunnel straight through a thin
+  static collider in a single physics step. This bit the Level 2 container
+  wall (originally 0.05 units thick) and combined badly with an infinite
+  floor plane: anything that escaped the open-topped wall just came to
+  rest outside the pot on the infinite floor, in plain view and clearly
+  broken. Fixed by thickening the wall segments (0.25) and bounding the
+  floor to a finite box sized to the container, so a residual escapee falls
+  through instead of resting visibly beside it.
 - **`collect()` in `game.ts` no longer gates on occlusion itself** --- it
   trusts its caller (`scene.ts`) to have already checked
   `occlusion.isCollectible()` against live physics-body positions before

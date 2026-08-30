@@ -78,6 +78,42 @@ A vigorous drag-shake test also produced a dramatic, temporary re-clustering
 of the level-2 pile mid-shake before it resettled --- exactly the "risk, not
 purely a benefit" behavior the shake mechanic is supposed to have, not a bug.
 
+## Round two: mesh fidelity and a genuinely deep pile
+
+The user played the deployed build and called out two problems directly: the
+items read as bare primitives, not real food, and the container held too
+little at too shallow a depth to need real digging. Both were fixed in two
+commits, verified again with a headless Chromium pass rather than just green
+tests:
+
+1. **[`0346a74`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit5-Cichlider/commit/0346a74)
+   --- reworked every item mesh to compose 3-5 primitives/techniques instead
+   of 1-2** (lathe bulbs, lumpy vertex displacement, extruded leaf
+   silhouettes), and added five new kinds (onion, pumpkin, eggplant, peanut,
+   scallion) to widen Level 2's variety pool to 20.
+2. **[`5d3e989`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit5-Cichlider/commit/5d3e989)
+   --- raised Level 2's *guaranteed floor* from 30 items to 84** by
+   tightening the per-kind and kind-count RNG ranges, not just its average,
+   and shrank the container radius so the extra items stack in real layers.
+   This surfaced two genuine physics bugs invisible to any unit test: a
+   taller pile let items clear the open-topped wall (or tunnel through a
+   too-thin wall segment in one step --- cannon-es has no CCD) and land on
+   what was an infinite floor plane, resting in open air outside the pot.
+   Fixed by thickening the wall segments and bounding the floor to a finite
+   box. Fixing *that* introduced a camera regression --- the taller
+   container (a physics safety margin) fed directly into camera distance,
+   zooming out far past what the actual pile needed --- fixed by capping a
+   separate `framingHeight` used only for camera/visual-wall math.
+
+   Verification here was iterative and screenshot-driven, not one pass: a
+   temporary `window.__gooseDebug` hook (removed before this commit) gave
+   ground truth on remaining-item counts and game status so a headless
+   Playwright script could confirm, round by round, that Level 1 still
+   clears, Level 2 settles with no items outside the container, the pile
+   reads as dense/multi-layer/occluded, and a spread of clicks across the
+   pot still collects buried items --- rather than trusting a single
+   screenshot or a passing test suite alone.
+
 ## What's still yours to do
 
 Actual device-motion "shake with a phone" and iOS's `DeviceMotionEvent`
