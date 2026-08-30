@@ -30,6 +30,11 @@ export const ITEM_KINDS: ItemKindDef[] = [
   { kind: "wheat-sheaf", size: "small", footprintRadius: 0.14, height: 0.5, color: "#d9b64a" },
   { kind: "feather", size: "small", footprintRadius: 0.12, height: 0.16, color: "#fafafa" },
   { kind: "drumstick", size: "large", footprintRadius: 0.22, height: 0.35, color: "#a9713f" },
+  { kind: "onion", size: "small", footprintRadius: 0.16, height: 0.26, color: "#e8c9a0" },
+  { kind: "pumpkin", size: "large", footprintRadius: 0.24, height: 0.26, color: "#e08a1e" },
+  { kind: "eggplant", size: "small", footprintRadius: 0.14, height: 0.34, color: "#4a2f6b" },
+  { kind: "peanut", size: "small", footprintRadius: 0.13, height: 0.18, color: "#d9b877" },
+  { kind: "scallion", size: "small", footprintRadius: 0.1, height: 0.42, color: "#e9f5e1" },
 ];
 
 export function findItemKind(kind: string): ItemKindDef {
